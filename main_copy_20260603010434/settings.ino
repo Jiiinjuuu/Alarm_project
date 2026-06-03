@@ -14,11 +14,7 @@
 //     alarmMode              // 0 = 퍼즐모드, 1 = RFID모드
 //     alarmOn                // 알람 켜짐 여부 (해제 시 false 로 바꾸면 됨)
 // ============================================================
-
-// ----- 조이스틱 핀 -----
-#define JOY_X  A0
-#define JOY_Y  A1
-#define JOY_SW 2
+#include "shared.h"
 
 // ----- 알람 설정값 (결과물) -----
 int  alarmHour = 7;
