@@ -4,18 +4,6 @@ int* melody = song0;
 int* noteSlot = slot0;
 int melodyLen = len0;
 
-// void startMelody() {
-//   int pick = random(3);
-//   if      (pick == 0) { melody = song0; noteSlot = slot0; melodyLen = len0; }
-//   else if (pick == 1) { melody = song1; noteSlot = slot1; melodyLen = len1; }
-//   else                { melody = song2; noteSlot = slot2; melodyLen = len2; }
-
-//   noteIndex = 0;
-//   noteStart = millis();
-//   musicPlayed = false;
-
-//   if (melody[0] > 0) tone(BUZZER, melody[0], noteSlot[0] * 9 / 10);
-// }
 void startMelody() {
   int pick = random(3);
   if      (pick == 0) { melody = song0; noteSlot = slot0; melodyLen = len0; }
@@ -24,7 +12,6 @@ void startMelody() {
 
   noteIndex = 0;
   noteStart = millis();
-  musicPlayed = false;
 
   if (melody[0] > 0) {
     tone(BUZZER, melody[0], noteSlot[0] * 9 / 10);

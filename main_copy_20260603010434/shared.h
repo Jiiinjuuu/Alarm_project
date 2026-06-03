@@ -42,7 +42,7 @@ extern int* noteSlot;
 extern int  melodyLen;
 
 // 메인에서 쓰는 공용 객체
-extern DS3231 rtc;
+extern RTC_DS3231 rtc;
 extern LiquidCrystal_I2C lcd;
 extern Stepper myStepper;
 
@@ -55,7 +55,6 @@ bool playMazeGame();
 
 // ===== 화면 모듈 함수 =====
 void showClock(DateTime now);
-void showWake(DateTime now);
 
 // ===== 알람 로직 =====
 void checkAlarm(DateTime now);

@@ -1,13 +1,4 @@
 #include "shared.h"
-void showWake(DateTime now) {
-  lcd.setCursor(0, 0);
-  lcd.print("!! WAKE UP !!   ");
-  lcd.setCursor(0, 1);
-  if (now.hour()   < 10) lcd.print("0");  lcd.print(now.hour());   lcd.print(":");
-  if (now.minute() < 10) lcd.print("0");  lcd.print(now.minute()); lcd.print(":");
-  if (now.second() < 10) lcd.print("0");  lcd.print(now.second());
-  lcd.print("        ");
-}
 
 void showClock(DateTime now) {
   lcd.setCursor(0, 0);
@@ -15,7 +6,7 @@ void showClock(DateTime now) {
   if (now.month() < 10) lcd.print("0");  lcd.print(now.month());  lcd.print("/");
   if (now.day()   < 10) lcd.print("0");  lcd.print(now.day());    lcd.print(" ");
   const char* days[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
-  lcd.print(days[now.dayOfWeek()]); lcd.print("  ");
+  lcd.print(days[now.dayOfTheWeek()]); lcd.print("  ");
 
   lcd.setCursor(0, 1);
   if (now.hour()   < 10) lcd.print("0");  lcd.print(now.hour());   lcd.print(":");

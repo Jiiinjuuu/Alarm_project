@@ -7,7 +7,7 @@
 #include <LiquidCrystal_I2C.h>
 #include "shared.h"
 
-extern LiquidCrystal_I2C lcd; 
+extern LiquidCrystal_I2C lcd;
 
 #define Row 2
 #define Col 16
@@ -32,7 +32,7 @@ bool playMazeGame() {
     player_X = 0;
     player_Y = 1;
     isplay = true;
-    
+
     lcd.clear();
     for(int r = 0; r < Row; r++){
       lcd.setCursor(0, r);
@@ -55,67 +55,16 @@ bool playMazeGame() {
   if (isplay == true) {
     runMazeLogic();
   }
-  
+
   // 3. 게임이 끝났다면 상태를 초기화하고 true 반환
   if (isplay == false) {
     isGameInit = false; // 다음 알람 때 재사용할 수 있도록 초기화
     return true;        // 게임 클리어 완료 상태 리턴
   }
-  
+
   return false; // 아직 게임 중임
 }
 
-// static void runMazeLogic() {
-//   int x = analogRead(JOY_X); 
-//   int y = analogRead(JOY_Y);
-  
-//   int Next_X = player_X;
-//   int Next_Y = player_Y;
-
-//   lcd.setCursor(player_X, player_Y); 
-//   lcd.print("o");
-
-//   // 메인 루프 주기와 맞추기 위해 조작 시 대기시간을 약간 조절 (필요시 조절 가능)
-//   if(x < 470) {
-//     Next_X = player_X - 1;
-//     if(Next_X < 0) Next_X = player_X;
-//     delay(150); 
-//   }
-//   else if(x > 550) {
-//     Next_X = player_X + 1;
-//     if(Next_X > 15) Next_X = player_X;
-//     delay(150); 
-//   }
-//   else if(y < 470) {  
-//     Next_Y = 1;
-//     delay(150);
-//   }
-//   else if(y > 550) {
-//     Next_Y = 0;    
-//     delay(150);
-//   }
-
-//   if(Next_X == player_X && Next_Y == player_Y) {
-//     lcd.setCursor(player_X, player_Y);
-//     lcd.print("o");
-//   }
-//   else if(maze[Next_Y][Next_X] == 1) {
-//     lcd.setCursor(player_X, player_Y);
-//     lcd.print("o");
-//   }
-//   else if(maze[Next_Y][Next_X] == 2) {
-//     ClearGame();
-//   }
-//   else if(maze[Next_Y][Next_X] == 0) {
-//     lcd.setCursor(Next_X, Next_Y);
-//     lcd.print("o");
-//     lcd.setCursor(player_X, player_Y);
-//     lcd.print(" ");
-
-//     player_X = Next_X;
-//     player_Y = Next_Y;
-//   }
-// }
 static void runMazeLogic() {
   // 이동 간격 제한: 150ms 안 됐으면 아무것도 안 함
   if (millis() - lastMoveTime < MOVE_INTERVAL) {
@@ -142,10 +91,10 @@ static void runMazeLogic() {
     if (Next_X > 15) Next_X = player_X;
   }
   else if (y < 470) {
-    Next_Y = 1;
+    Next_Y = 0;
   }
   else if (y > 550) {
-    Next_Y = 0;
+    Next_Y = 1;
   }
   else {
     return;  // 조작 없으면 종료
@@ -181,6 +130,6 @@ static void ClearGame(){
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Clear! ! !");
-  delay(2000); 
-  isplay = false; 
+  delay(2000);
+  isplay = false;
 }
