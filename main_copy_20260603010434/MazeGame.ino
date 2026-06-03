@@ -18,6 +18,10 @@ static int player_Y = 1;
 static bool isGameInit = false; // 게임 시작 시 화면을 한 번만 그리기 위한 플래그
 static bool isplay = true;
 
+// 추가
+unsigned long lastMoveTime = 0;
+const unsigned long MOVE_INTERVAL = 150;
+
 static void runMazeLogic();
 static void ClearGame();
 
@@ -61,58 +65,118 @@ bool playMazeGame() {
   return false; // 아직 게임 중임
 }
 
-static void runMazeLogic() {
-  int x = analogRead(JOY_X); 
-  int y = analogRead(JOY_Y);
+// static void runMazeLogic() {
+//   int x = analogRead(JOY_X); 
+//   int y = analogRead(JOY_Y);
   
+//   int Next_X = player_X;
+//   int Next_Y = player_Y;
+
+//   lcd.setCursor(player_X, player_Y); 
+//   lcd.print("o");
+
+//   // 메인 루프 주기와 맞추기 위해 조작 시 대기시간을 약간 조절 (필요시 조절 가능)
+//   if(x < 470) {
+//     Next_X = player_X - 1;
+//     if(Next_X < 0) Next_X = player_X;
+//     delay(150); 
+//   }
+//   else if(x > 550) {
+//     Next_X = player_X + 1;
+//     if(Next_X > 15) Next_X = player_X;
+//     delay(150); 
+//   }
+//   else if(y < 470) {  
+//     Next_Y = 1;
+//     delay(150);
+//   }
+//   else if(y > 550) {
+//     Next_Y = 0;    
+//     delay(150);
+//   }
+
+//   if(Next_X == player_X && Next_Y == player_Y) {
+//     lcd.setCursor(player_X, player_Y);
+//     lcd.print("o");
+//   }
+//   else if(maze[Next_Y][Next_X] == 1) {
+//     lcd.setCursor(player_X, player_Y);
+//     lcd.print("o");
+//   }
+//   else if(maze[Next_Y][Next_X] == 2) {
+//     ClearGame();
+//   }
+//   else if(maze[Next_Y][Next_X] == 0) {
+//     lcd.setCursor(Next_X, Next_Y);
+//     lcd.print("o");
+//     lcd.setCursor(player_X, player_Y);
+//     lcd.print(" ");
+
+//     player_X = Next_X;
+//     player_Y = Next_Y;
+//   }
+// }
+static void runMazeLogic() {
+  // 이동 간격 제한: 150ms 안 됐으면 아무것도 안 함
+  if (millis() - lastMoveTime < MOVE_INTERVAL) {
+    return;
+  }
+
+  int x = analogRead(JOY_X);
+  int y = analogRead(JOY_Y);
+
   int Next_X = player_X;
   int Next_Y = player_Y;
 
-  lcd.setCursor(player_X, player_Y); 
+  // 현재 위치 지우기 전에 일단 플레이어 표시 유지
+  lcd.setCursor(player_X, player_Y);
   lcd.print("o");
 
-  // 메인 루프 주기와 맞추기 위해 조작 시 대기시간을 약간 조절 (필요시 조절 가능)
-  if(x < 470) {
+  // 조이스틱 입력 처리
+  if (x < 470) {
     Next_X = player_X - 1;
-    if(Next_X < 0) Next_X = player_X;
-    delay(150); 
+    if (Next_X < 0) Next_X = player_X;
   }
-  else if(x > 550) {
+  else if (x > 550) {
     Next_X = player_X + 1;
-    if(Next_X > 15) Next_X = player_X;
-    delay(150); 
+    if (Next_X > 15) Next_X = player_X;
   }
-  else if(y < 470) {  
+  else if (y < 470) {
     Next_Y = 1;
-    delay(150);
   }
-  else if(y > 550) {
-    Next_Y = 0;    
-    delay(150);
+  else if (y > 550) {
+    Next_Y = 0;
+  }
+  else {
+    return;  // 조작 없으면 종료
   }
 
-  if(Next_X == player_X && Next_Y == player_Y) {
-    lcd.setCursor(player_X, player_Y);
-    lcd.print("o");
+  // 벽이면 이동 안 함
+  if (maze[Next_Y][Next_X] == 1) {
+    return;
   }
-  else if(maze[Next_Y][Next_X] == 1) {
-    lcd.setCursor(player_X, player_Y);
-    lcd.print("o");
-  }
-  else if(maze[Next_Y][Next_X] == 2) {
+
+  // 정답 도착
+  if (maze[Next_Y][Next_X] == 2) {
     ClearGame();
+    lastMoveTime = millis();
+    return;
   }
-  else if(maze[Next_Y][Next_X] == 0) {
-    lcd.setCursor(Next_X, Next_Y);
-    lcd.print("o");
+
+  // 빈칸 이동
+  if (maze[Next_Y][Next_X] == 0) {
     lcd.setCursor(player_X, player_Y);
     lcd.print(" ");
 
+    lcd.setCursor(Next_X, Next_Y);
+    lcd.print("o");
+
     player_X = Next_X;
     player_Y = Next_Y;
+
+    lastMoveTime = millis();
   }
 }
-
 static void ClearGame(){
   lcd.clear();
   lcd.setCursor(0, 0);

@@ -8,7 +8,7 @@ TARGET_PORT = 'COM6'
 BAUD_RATE = 9600
 
 def get_gyeongbu_realtime_speed():
-    api_url = "https://data.ex.co.kr/openapi/odtraffic/trafficAmountByRealtime" 
+    api_url = "https://data.ex.co.kr/openapi/odtraffic/trafficAmountByCongest" 
     api_key = "8582150084" 
     
     params = {

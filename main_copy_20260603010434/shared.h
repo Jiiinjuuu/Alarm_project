@@ -26,6 +26,9 @@ extern int  alarmMin;
 extern int  alarmMode;
 extern bool alarmOn;
 
+extern bool alarmConsumed;
+extern uint32_t alarmConsumedMinute;
+
 // ===== 공용 상태 변수 =====
 extern bool curtainOpen;
 extern bool ringing;
@@ -65,5 +68,6 @@ void stopAlarm();
 // ===== 커튼 모터 =====
 void openCurtain();
 void closeCurtain();
+
 
 #endif
