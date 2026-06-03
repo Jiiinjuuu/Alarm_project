@@ -4,56 +4,62 @@ import serial
 
 # ===== 시리얼 포트 설정 =====
 # 본인의 아두이노 포트에 맞게 'COM3', 'COM4' 등으로 수정하세요. (리눅스/맥은 '/dev/ttyACM0' 등)
-TARGET_PORT = 'COM6' 
+TARGET_PORT = 'COM3'
 BAUD_RATE = 9600
 
-def get_gyeongbu_realtime_speed():
-    api_url = "https://data.ex.co.kr/openapi/odtraffic/trafficAmountByCongest" 
-    api_key = "8582150084" 
-    
+# 이 API(trafficAmountByCongest)는 '지금 정체 중인 구간'만 돌려준다.
+# 따라서 경부선에서 잡히는 구간 개수 = 현재 막히는 정도. 그 개수로 H/M/L을 판정한다.
+#   - 정체 경부 구간 >= HEAVY_THRESHOLD  -> H (정체)
+#   - 정체 경부 구간 >= MODERATE_THRESHOLD -> M (서행)
+#   - 그 미만                            -> L (원활)
+# 임계값(경부선 양방향 콘존 ~150~200개 기준 추정치. 러시아워 로그 보고 조정 권장):
+#   10개 이상 -> 서행(M), 30개 이상 -> 정체(H)
+MODERATE_THRESHOLD = 10
+HEAVY_THRESHOLD = 30
+
+def get_gyeongbu_traffic():
+    api_url = "https://data.ex.co.kr/openapi/odtraffic/trafficAmountByCongest"
+    api_key = "8582150084"
+
     params = {
         'key': api_key,
         'type': 'json',
-        'numOfRows': '1000',  
+        'numOfRows': '1000',
         'pageNo': '1'
     }
-    
+
     try:
         response = requests.get(api_url, params=params)
         response.raise_for_status()
         data = response.json()
-        traffic_list = data.get('list', data.get('realtimeTrafficList', []))
-        
-        if not traffic_list:
-            return "M", 0.0, 0
-            
+        traffic_list = data.get('list', data.get('realtimeTrafficList', [])) or []
+
+        # 경부선 정체 구간 개수를 센다(참고용으로 평균 속도도 함께 계산).
+        congested = 0
         speeds = []
         for route in traffic_list:
             route_name = route.get('routeName', route.get('routeNm', ''))
             if route_name and "경부" in route_name:
+                congested += 1
                 speed_val = route.get('speed', route.get('trfcSpd', None))
-                if speed_val is not None:
-                    speed_int = int(speed_val)
-                    if speed_int >= 0:
-                        speeds.append(speed_int)
-                        
-        if not speeds:
-            return "L", 100.0, 0
-        
-        avg_speed = sum(speeds) / len(speeds)
-        
-        if avg_speed < 50:
-            result = "H"
-        elif avg_speed < 80:
-            result = "M"
+                if speed_val is not None and int(speed_val) >= 0:
+                    speeds.append(int(speed_val))
+
+        avg_speed = (sum(speeds) / len(speeds)) if speeds else 0.0
+
+        if congested >= HEAVY_THRESHOLD:
+            status = "H"
+        elif congested >= MODERATE_THRESHOLD:
+            status = "M"
         else:
-            result = "L"
-            
-        return result, avg_speed, len(speeds)
-        
+            status = "L"
+
+        return status, congested, avg_speed
+
     except Exception as e:
         print(f"API 요청 또는 데이터 파싱 중 에러 발생: {e}")
-        return "M", 0.0, 0
+        # None = 이번 판정 실패. 메인 루프가 직전 정상값을 유지한다.
+        return None, 0, 0.0
 
 # --- 시리얼 연결 및 메인 루프 ---
 try:
@@ -68,18 +74,24 @@ print("경부고속도로 실시간 소통 현황 모니터링 및 알람 연동
 print("------------------------------------------------------------------")
 
 last_api_check = 0
-cached_status = "M"
+cached_status = "L"   # 기본은 원활(정체 정보가 없으면 알람을 당기지 않음)
+cached_count = 0
 cached_avg_spd = 0.0
-cached_total_count = 0
 
 while True:
     current_time = time.time()
-    
+
     # 1. 10초마다 한 번씩 백그라운드에서 API 데이터를 최신화 (아두이노 요청 시 바로 응답하기 위함)
     if current_time - last_api_check >= 10:
-        cached_status, cached_avg_spd, cached_total_count = get_gyeongbu_realtime_speed()
-        print(f"[{time.strftime('%H:%M:%S')}] 평균 속도: {cached_avg_spd:.1f} km/h (구간: {cached_total_count}개) -> 상태: {cached_status}")
+        status, count, avg_spd = get_gyeongbu_traffic()
         last_api_check = current_time
+
+        if status is None:
+            # API 오류 시에만 직전 정상값 유지(정체 구간이 적은 건 정상 = 원활)
+            print(f"[{time.strftime('%H:%M:%S')}] API 오류 -> 직전 상태('{cached_status}') 유지")
+        else:
+            cached_status, cached_count, cached_avg_spd = status, count, avg_spd
+            print(f"[{time.strftime('%H:%M:%S')}] 정체 경부 구간: {cached_count}개 (평균 {cached_avg_spd:.1f} km/h) -> 상태: {cached_status}")
 
     # 2. 아두이노로부터 온 데이터가 있는지 체크
     if ser.in_waiting > 0:
