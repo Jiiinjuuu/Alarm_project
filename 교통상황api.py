@@ -7,15 +7,16 @@ import serial
 TARGET_PORT = 'COM3'
 BAUD_RATE = 9600
 
-# 이 API(trafficAmountByCongest)는 '지금 정체 중인 구간'만 돌려준다.
-# 따라서 경부선에서 잡히는 구간 개수 = 현재 막히는 정도. 그 개수로 H/M/L을 판정한다.
-#   - 정체 경부 구간 >= HEAVY_THRESHOLD  -> H (정체)
-#   - 정체 경부 구간 >= MODERATE_THRESHOLD -> M (서행)
-#   - 그 미만                            -> L (원활)
-# 임계값(경부선 양방향 콘존 ~150~200개 기준 추정치. 러시아워 로그 보고 조정 권장):
-#   10개 이상 -> 서행(M), 30개 이상 -> 정체(H)
-MODERATE_THRESHOLD = 10
-HEAVY_THRESHOLD = 30
+# 이 API(trafficAmountByCongest)는 '지금 막히는 구간'만 돌려준다(전국 통틀어 ~90여 개).
+# 따라서 경부선이 리스트에 잡혔다는 것 자체가 이미 정체/서행 신호다.
+# 단, 잡히는 구간 '개수'는 노선의 검지기(VDS) 수에 따라 호출마다 출렁여(6~13개 등) 불안정하므로,
+# 경부 구간들의 '평균 속도'로 H/M/L을 판정한다.
+#   - 경부 구간 없음                     -> L (원활: 정체로 잡힌 구간이 없음)
+#   - 평균 속도 < HEAVY_SPEED            -> H (정체)
+#   - 평균 속도 < MODERATE_SPEED         -> M (서행)
+#   - 그 이상                            -> L (원활)
+HEAVY_SPEED = 40       # km/h 미만이면 정체(H)
+MODERATE_SPEED = 60    # km/h 미만이면 서행(M)
 
 def get_gyeongbu_traffic():
     api_url = "https://data.ex.co.kr/openapi/odtraffic/trafficAmountByCongest"
@@ -34,7 +35,7 @@ def get_gyeongbu_traffic():
         data = response.json()
         traffic_list = data.get('list', data.get('realtimeTrafficList', [])) or []
 
-        # 경부선 정체 구간 개수를 센다(참고용으로 평균 속도도 함께 계산).
+        # 리스트에 잡힌 경부 구간을 모으고(개수는 참고용 로그), 평균 속도로 판정한다.
         congested = 0
         speeds = []
         for route in traffic_list:
@@ -47,10 +48,12 @@ def get_gyeongbu_traffic():
 
         avg_speed = (sum(speeds) / len(speeds)) if speeds else 0.0
 
-        if congested >= HEAVY_THRESHOLD:
-            status = "H"
-        elif congested >= MODERATE_THRESHOLD:
-            status = "M"
+        if congested == 0:
+            status = "L"                 # 경부 정체 구간이 아예 없음 = 원활
+        elif avg_speed < HEAVY_SPEED:
+            status = "H"                 # 평균 40km/h 미만 = 정체
+        elif avg_speed < MODERATE_SPEED:
+            status = "M"                 # 평균 60km/h 미만 = 서행
         else:
             status = "L"
 
@@ -62,50 +65,55 @@ def get_gyeongbu_traffic():
         return None, 0, 0.0
 
 # --- 시리얼 연결 및 메인 루프 ---
-try:
-    ser = serial.Serial(TARGET_PORT, BAUD_RATE, timeout=1)
-    time.sleep(2) # 아두이노 리셋 대기 시간
-    print(f"아두이노 통신 연결 성공 ({TARGET_PORT})")
-except Exception as e:
-    print(f"시리얼 포트 연결 실패: {e}")
-    exit()
+def main():
+    try:
+        ser = serial.Serial(TARGET_PORT, BAUD_RATE, timeout=1)
+        time.sleep(2) # 아두이노 리셋 대기 시간
+        print(f"아두이노 통신 연결 성공 ({TARGET_PORT})")
+    except Exception as e:
+        print(f"시리얼 포트 연결 실패: {e}")
+        return
 
-print("경부고속도로 실시간 소통 현황 모니터링 및 알람 연동을 시작합니다.")
-print("------------------------------------------------------------------")
+    print("경부고속도로 실시간 소통 현황 모니터링 및 알람 연동을 시작합니다.")
+    print("------------------------------------------------------------------")
 
-last_api_check = 0
-cached_status = "L"   # 기본은 원활(정체 정보가 없으면 알람을 당기지 않음)
-cached_count = 0
-cached_avg_spd = 0.0
+    last_api_check = 0
+    cached_status = "L"   # 기본은 원활(정체 정보가 없으면 알람을 당기지 않음)
+    cached_count = 0
+    cached_avg_spd = 0.0
 
-while True:
-    current_time = time.time()
+    while True:
+        current_time = time.time()
 
-    # 1. 10초마다 한 번씩 백그라운드에서 API 데이터를 최신화 (아두이노 요청 시 바로 응답하기 위함)
-    if current_time - last_api_check >= 10:
-        status, count, avg_spd = get_gyeongbu_traffic()
-        last_api_check = current_time
+        # 1. 10초마다 한 번씩 백그라운드에서 API 데이터를 최신화 (아두이노 요청 시 바로 응답하기 위함)
+        if current_time - last_api_check >= 10:
+            status, count, avg_spd = get_gyeongbu_traffic()
+            last_api_check = current_time
 
-        if status is None:
-            # API 오류 시에만 직전 정상값 유지(정체 구간이 적은 건 정상 = 원활)
-            print(f"[{time.strftime('%H:%M:%S')}] API 오류 -> 직전 상태('{cached_status}') 유지")
-        else:
-            cached_status, cached_count, cached_avg_spd = status, count, avg_spd
-            print(f"[{time.strftime('%H:%M:%S')}] 정체 경부 구간: {cached_count}개 (평균 {cached_avg_spd:.1f} km/h) -> 상태: {cached_status}")
+            if status is None:
+                # API 오류 시에만 직전 정상값 유지(정체 구간이 적은 건 정상 = 원활)
+                print(f"[{time.strftime('%H:%M:%S')}] API 오류 -> 직전 상태('{cached_status}') 유지")
+            else:
+                cached_status, cached_count, cached_avg_spd = status, count, avg_spd
+                print(f"[{time.strftime('%H:%M:%S')}] 정체 경부 구간: {cached_count}개 (평균 {cached_avg_spd:.1f} km/h) -> 상태: {cached_status}")
 
-    # 2. 아두이노로부터 온 데이터가 있는지 체크
-    if ser.in_waiting > 0:
-        try:
-            line = ser.readline().decode('utf-8').strip()
-            
-            # 아두이노에서 알람 시각에 'Q' 신호를 보낸 경우
-            if 'Q' in line:
-                print(f"\n[🔔 아두이노 알람 트리거 발생!] 현재 판정된 교통 상태('{cached_status}')를 전송합니다.")
-                
-                # 최신 상태값을 아두이노로 전송 ('H', 'M', 'L' 중 한 글자)
-                ser.write(cached_status.encode('utf-8'))
-                ser.flush()
-        except Exception as e:
-            print(f"데이터 수신/전송 중 오류 발생: {e}")
+        # 2. 아두이노로부터 온 데이터가 있는지 체크
+        if ser.in_waiting > 0:
+            try:
+                line = ser.readline().decode('utf-8').strip()
 
-    time.sleep(0.1) # CPU 과점유 방지용 딜레이
+                # 아두이노에서 알람 시각에 'Q' 신호를 보낸 경우
+                if 'Q' in line:
+                    print(f"\n[🔔 아두이노 알람 트리거 발생!] 현재 판정된 교통 상태('{cached_status}')를 전송합니다.")
+
+                    # 최신 상태값을 아두이노로 전송 ('H', 'M', 'L' 중 한 글자)
+                    ser.write(cached_status.encode('utf-8'))
+                    ser.flush()
+            except Exception as e:
+                print(f"데이터 수신/전송 중 오류 발생: {e}")
+
+        time.sleep(0.1) # CPU 과점유 방지용 딜레이
+
+
+if __name__ == "__main__":
+    main()
