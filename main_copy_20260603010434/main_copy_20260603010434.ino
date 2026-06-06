@@ -12,6 +12,15 @@ const int stepsPerRevolution = 2048;
 Stepper myStepper(stepsPerRevolution, IN1, IN3, IN2, IN4);
 bool curtainOpen = false;
 
+// ===== RFID =====
+MFRC522 rfid(RFID_SS, RFID_RST);
+// TODO: 등록할 카드들의 UID 4바이트로 바꾸세요. 줄을 추가/삭제하면 카드 개수도 자동 반영됩니다.
+byte myUIDs[][4] = {
+  {0x0C, 0x07, 0x02, 0x07},  // 흰색 카드 0C 07 02 07
+  {0xCD, 0x68, 0x20, 0x07},  // 파란색 카드 CD 68 20 07
+};
+const int numCards = sizeof(myUIDs) / sizeof(myUIDs[0]);
+
 int   noteIndex = 0;
 unsigned long noteStart = 0;
 bool ringing = false;
@@ -41,6 +50,9 @@ void setup() {
   pinMode(LED, OUTPUT);
 
   myStepper.setSpeed(15);
+
+  SPI.begin();        // RFID 통신용 SPI 시작
+  rfid.PCD_Init();    // MFRC522 리더 초기화
 }
 
 void loop() {
@@ -77,7 +89,15 @@ void loop() {
 
     soundAlarm();
 
-    if (playMazeGame() == true) {
+    // 알람 해제 방식: alarmMode 0 = 미로 퍼즐, 1 = RFID 카드 태그
+    bool dismissed;
+    if (alarmMode == 1) {
+      dismissed = executeRFIDMode();  // 카드 한 번 검사(논블로킹), 등록 카드면 true
+    } else {
+      dismissed = playMazeGame();
+    }
+
+    if (dismissed) {
       stopAlarm();
       curtainOpen = false;
       ringing = false;
