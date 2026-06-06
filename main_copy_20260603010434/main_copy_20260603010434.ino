@@ -86,8 +86,18 @@ void loop() {
       curtainOpen = true;
       startMelody();
     }
-
-    soundAlarm();
+if (alarmMode == 1) { 
+      executeRFIDMode(); 
+      // 인증 성공 시 executeRFIDMode 내부에서 ringing = false가 될 것입니다.
+      // 하단의 playMazeGame이 실행되지 않게 하려면 여기서 함수를 강제 종료하거나 
+      // 하단 로직을 if(alarmMode == 0)으로 감싸야 합니다.
+    } 
+    else {
+      // 기존 퍼즐 모드는 아래의 playMazeGame 로직을 따름
+    }
+  }
+  if (alarmMode == 0) {
+      soundAlarm();
 
     // 알람 해제 방식: alarmMode 0 = 미로 퍼즐, 1 = RFID 카드 태그
     bool dismissed;
