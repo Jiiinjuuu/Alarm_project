@@ -5,6 +5,8 @@
 #include <RTClib.h>
 #include <LiquidCrystal_I2C.h>
 #include <Stepper.h>
+#include <SPI.h>
+#include <MFRC522.h>
 
 // ===== 조이스틱 핀 =====
 #define JOY_X  A0
@@ -15,10 +17,16 @@
 #define BUZZER 7
 #define LED    8
 
-#define IN1 9
-#define IN2 10
-#define IN3 11
-#define IN4 12
+// 스텝모터 핀 (RFID SPI 핀 9~13과 겹치지 않도록 3~6으로 이동)
+#define IN1 3
+#define IN2 4
+#define IN3 5
+#define IN4 6
+
+// ===== RFID(MFRC522) 핀 =====
+// SCK=13, MISO=12, MOSI=11 은 SPI 하드웨어 고정 핀이라 변경 불가
+#define RFID_SS  10
+#define RFID_RST 9
 
 // ===== 알람 설정값 =====
 extern int  alarmHour;
@@ -45,6 +53,9 @@ extern int  melodyLen;
 extern RTC_DS3231 rtc;
 extern LiquidCrystal_I2C lcd;
 extern Stepper myStepper;
+extern MFRC522 rfid;
+extern byte myUIDs[][4];
+extern const int numCards;
 
 // ===== 설정 모듈 함수 =====
 void initSettings();
@@ -52,6 +63,9 @@ void openSettingMenu();
 
 // ===== 미로게임 모듈 함수 =====
 bool playMazeGame();
+
+// ===== RFID 모듈 함수 =====
+bool executeRFIDMode();
 
 // ===== 화면 모듈 함수 =====
 void showClock(DateTime now);
