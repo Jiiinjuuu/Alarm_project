@@ -82,5 +82,8 @@ void stopAlarm();
 void openCurtain();
 void closeCurtain();
 
+// =====RFID=====
+void executeRFIDMode();
+
 
 #endif
